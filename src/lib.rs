@@ -12,7 +12,7 @@
     unstable_features,
     unused_import_braces,
     unused_qualifications,
-    warnings
+    //warnings
 )]
 #![allow(dead_code)]
 
@@ -20,6 +20,7 @@ extern crate cast;
 extern crate embedded_hal as ehal;
 extern crate generic_array;
 extern crate nb;
+extern crate safe_transmute;
 
 use ::core::mem::MaybeUninit;
 
@@ -141,6 +142,14 @@ where
         }
 
         Ok(buffer)
+    }
+
+    fn read_4bytes(&mut self, reg: Register) -> Result<[u8; 4], E> {
+        let buffer: GenericArray<u8, U4> = self.read_registers(reg)?;
+        let mut ret: [u8; 4] = Default::default();
+        ret.copy_from_slice(buffer.as_slice());
+
+        Ok(ret)
     }
 
     fn read_6bytes(&mut self, reg: Register) -> Result<[u8; 6], E> {
@@ -381,7 +390,7 @@ where
     /// 0x12  | accelerometer rate failure			| is unreliable and has stopped
     /// 0x14  | Gyroscope rate failure 				| producing data
     pub fn check_errors(&mut self) -> Result<u8, E> {
-        self.read_register(Register::EM7180_ErrorRegister)
+        self.read_register(Register::EM7180_Error)
     }
     
     /// Check SensorStatus Sensor-Related Error Conditions on address 0x36
@@ -467,23 +476,24 @@ where
     }
 
     /// Read Normalized Quaternion
-    /// QX Normalized Quaternion – X, or Heading
-    /// QY Normalized Quaternion – Y, or Pitch
-    /// QZ Normalized Quaternion – Z, or Roll
-    /// QW Normalized Quaternion – W, or 0.0
-    pub fn read_sentral_quat_qata(&mut self) ->  Result<[f64; 4], E> {
-        let raw_data = self.read_16bytes(Register::EM7180_QX)?;
+    /// QX Normalized Quaternion – X, or Heading    | Full-Scale Range 0.0 – 1.0 or ±π
+    /// QY Normalized Quaternion – Y, or Pitch      | Full-Scale Range 0.0 – 1.0 or ±π/2
+    /// QZ Normalized Quaternion – Z, or Roll       | Full-Scale Range 0.0 – 1.0 or ±π
+    /// QW Normalized Quaternion – W, or 0.0        | Full-Scale Range 0.0 – 1.0
+    pub fn read_sentral_quat_qata(&mut self) ->  Result<[f32; 4], E> {
+        let raw_data_qx = self.read_4bytes(Register::EM7180_QX)?;
+        let qx = reg_to_float(&raw_data_qx);
 
-        let q0 = self.reg_to_float(raw_data[0]);
-        let qx = self.reg_to_float(raw_data[4]);
-        let qy = self.reg_to_float(raw_data[8]);
-        let qz = self.reg_to_float(raw_data[12]);
-        
-        Ok([q0, qx, qy, qz])
-    }
+        let raw_data_qy = self.read_4bytes(Register::EM7180_QY)?;
+        let qy = reg_to_float(&raw_data_qy);
 
-    fn reg_to_float(&mut self, _buffer: u8) -> f64 {
-       0 as f64
+        let raw_data_qz = self.read_4bytes(Register::EM7180_QZ)?;
+        let qz = reg_to_float(&raw_data_qz);
+
+        let raw_data_qw = self.read_4bytes(Register::EM7180_QW)?;
+        let qw = reg_to_float(&raw_data_qw);
+
+        Ok([qx, qy, qz, qw])
     }
 
     /// Read Pressure in mBar
@@ -503,7 +513,7 @@ where
 #[allow(non_camel_case_types)]
 enum Register {
     EM7180_EventStatus = 0x35,
-    EM7180_ErrorRegister = 0x50,
+    EM7180_Error = 0x50,
     EM7180_ProductID = 0x90,
     EM7180_HostControl = 0x34,
     EM7180_PassThruControl = 0xA0,
@@ -537,9 +547,42 @@ enum Register {
     EM7180_ResetRequest = 0x9B,
     EM7180_RunStatus = 0x92,
     EM7180_QX = 0x00, // this is a 32-bit normalized floating point number read from registers 0x00-03
+    EM7180_QY = 0x04, // this is a 32-bit normalized floating point number read from registers 0x04-07
+    EM7180_QZ = 0x08, // this is a 32-bit normalized floating point number read from registers 0x08-0B
+    EM7180_QW = 0x0C, // this is a 32-bit normalized floating point number read from registers 0x0C-0F
     EM7180_AX = 0x1A, // i16 from registers 0x1A-1B
     EM7180_GX = 0x22, // i16 from registers 0x22-23
     EM7180_MX = 0x12, // int16_t from registers 0x12-13
     EM7180_Baro = 0x2A, // start of two-byte MS5637 pressure data, 16-bit signed interger
     EM7180_Temp = 0x2E, // start of two-byte MS5637 temperature data, 16-bit signed interger
+}
+
+/// Transform raw quaternion buffer data into something meaningfull
+fn reg_to_float(buf: &[u8]) -> f32 {
+    unsafe {
+        safe_transmute::guarded_transmute::<f32>(buf).unwrap()
+    }
+}
+
+/// Transform raw temperature data into Celsius degrees
+pub fn raw_temperature_to_celsius(raw_temperature: i16) -> f64 {
+    raw_temperature as f64 * 0.01f64
+}
+
+/// Transform raw temperature data into Fahrenheit degrees
+pub fn raw_temperature_to_fahrenheit(raw_temperature: i16) -> f64 {
+    9.0f64 * raw_temperature_to_celsius(raw_temperature) / 5.0f64 + 32.0f64
+}
+
+/// Transform raw pressure data into mbar pressure
+pub fn raw_pressure_to_mbar(raw_pressure: i16) -> f64 {
+    raw_pressure as f64 * 0.01f64 + 1013.25f64
+}
+
+/// Transform raw pressure data into feet altitude
+pub fn raw_pressure_to_feet(_raw_pressure: i16) -> f64 {
+    // powf error, let's check
+    //let x = raw_pressure_to_mbar(raw_pressure) / 1013.25f64;
+    //145366.45f64 * (1.0f64 - x.powf(0.190284f64))
+    0.0
 }

@@ -24,3 +24,7 @@ nb = "0.1.2"
 default-features = false
 version = "0.2.2"
 uninit = "0.1.0"
+
+[dependencies.safe-transmute]
+version =  "0.10.1"
+default-features = false
