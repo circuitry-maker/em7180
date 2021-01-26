@@ -14,7 +14,7 @@
     unused_qualifications,
     //warnings
 )]
-#![allow(dead_code)]
+#![allow(dead_code, clippy::uninit_assumed_init, clippy::too_many_arguments)]
 
 extern crate cast;
 extern crate embedded_hal as ehal;
@@ -197,7 +197,7 @@ where
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer procedure
         let mut stat = self.read_register(Register::EM7180_ParamAcknowledge)?; // Check the parameter acknowledge register and loop until the result matches parameter request byte
 
-        while !(stat == param) {
+        while stat != param {
             stat = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
@@ -221,7 +221,7 @@ where
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer procedure
         let mut stat = self.read_register(Register::EM7180_ParamAcknowledge)?; // Check the parameter acknowledge register and loop until the result matches parameter request byte
 
-        while !(stat == 0xCA) {
+        while stat != 0xCA {
             stat = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
@@ -245,7 +245,7 @@ where
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer procedure
         let mut stat = self.read_register(Register::EM7180_ParamAcknowledge)?; // Check the parameter acknowledge register and loop until the result matches parameter request byte
 
-        while !(stat == 0xCB) {
+        while stat != 0xCB {
             stat = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
@@ -261,7 +261,7 @@ where
         let mut count = 0;
         while stat != 0 {
             self.write_register(Register::EM7180_ResetRequest, 0x01)?;
-            count = count + 1;
+            count += 1;
             stat = self.read_register(Register::EM7180_SentralStatus)? & 0x01;
             if count > 10 {
                 break;
@@ -315,13 +315,13 @@ where
 
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer process
         let mut param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
-        while !(param_xfer == 0x4A) {
+        while param_xfer != 0x4A {
             param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
         self.write_register(Register::EM7180_ParamRequest, 0x4B)?; // Request to read  parameter 75
         let mut param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
-        while !(param_xfer == 0x4B) {
+        while param_xfer != 0x4B {
             param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
@@ -339,13 +339,13 @@ where
         self.write_register(Register::EM7180_ParamRequest, 0x4A)?; // Request to read  parameter 74
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer process
         let mut param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
-        while !(param_xfer == 0x4A) {
+        while param_xfer != 0x4A {
             param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
         self.write_register(Register::EM7180_ParamRequest, 0x4B)?; // Request to read  parameter 75
         let mut param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
-        while !(param_xfer == 0x4B) {
+        while param_xfer != 0x4B {
             param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
@@ -392,16 +392,16 @@ where
 
     /// Check ErrorRegister Software-Related Error Conditions on address 0x50
     /// Non-zero value indicates an error
-    /// value | error condition 					| response
-    /// 0x00  | no error        					|
-    /// 0x80  | invalid sample rate selected 		| check sensor rate settings
-    /// 0x30  | mathematical error 					| check for software updates
-    /// 0x21  | Magnetometer initialization failed 	| this error can be caused by a wrong driver,
-    /// 0x22  | accelerometer initialization failed	| physically bad sensor connection, or
-    /// 0x24  | gyroscope initialization failed		| incorrect I2C device address in the driver
-    /// 0x11  | magnetometer rate failure 			| this error indicates the given sensor
-    /// 0x12  | accelerometer rate failure			| is unreliable and has stopped
-    /// 0x14  | Gyroscope rate failure 				| producing data
+    /// value | error condition                         | response
+    /// 0x00  | no error                                |
+    /// 0x80  | invalid sample rate selected            | check sensor rate settings
+    /// 0x30  | mathematical error                      | check for software updates
+    /// 0x21  | Magnetometer initialization failed      | this error can be caused by a wrong driver,
+    /// 0x22  | accelerometer initialization failed     | physically bad sensor connection, or
+    /// 0x24  | gyroscope initialization failed         | incorrect I2C device address in the driver
+    /// 0x11  | magnetometer rate failure               | this error indicates the given sensor
+    /// 0x12  | accelerometer rate failure              | is unreliable and has stopped
+    /// 0x14  | Gyroscope rate failure                  | producing data
     pub fn check_errors(&mut self) -> Result<u8, E> {
         self.read_register(Register::EM7180_Error)
     }
