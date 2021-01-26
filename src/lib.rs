@@ -37,7 +37,7 @@ pub struct USFS<I2C> {
     com: I2C,
     address: u8,
     int_pin: u8,
-    pass_thru: bool
+    pass_thru: bool,
 }
 
 /// Defines errors
@@ -78,30 +78,29 @@ where
             com: i2c,
             address,
             int_pin,
-            pass_thru
+            pass_thru,
         };
 
         let wai = chip.get_product_id()?;
 
         if wai == 0x80 {
+            /*
+                Choose EM7180, MPU9250 and MS5637 sample rates and bandwidths
+                Choices are:
+                accBW, gyroBW 0x00 = 250 Hz, 0x01 = 184 Hz, 0x02 = 92 Hz, 0x03 = 41 Hz, 0x04 = 20 Hz, 0x05 = 10 Hz, 0x06 = 5 Hz, 0x07 = no filter (3600 Hz)
+                QRtDiv 0x00, 0x01, 0x02, etc quat rate = gyroRt/(1 + QRtDiv)
+                magRt 8 Hz = 0x08 or 100 Hz 0x64
+                accRt, gyroRt 1000, 500, 250, 200, 125, 100, 50 Hz enter by choosing desired rate
+                and dividing by 10, so 200 Hz would be 200/10 = 20 = 0x14
+                sample rate of barometer is baroRt/2 so for 25 Hz enter 50 = 0x32
 
-        /*
-            Choose EM7180, MPU9250 and MS5637 sample rates and bandwidths
-            Choices are:
-            accBW, gyroBW 0x00 = 250 Hz, 0x01 = 184 Hz, 0x02 = 92 Hz, 0x03 = 41 Hz, 0x04 = 20 Hz, 0x05 = 10 Hz, 0x06 = 5 Hz, 0x07 = no filter (3600 Hz)
-            QRtDiv 0x00, 0x01, 0x02, etc quat rate = gyroRt/(1 + QRtDiv)
-            magRt 8 Hz = 0x08 or 100 Hz 0x64
-            accRt, gyroRt 1000, 500, 250, 200, 125, 100, 50 Hz enter by choosing desired rate
-            and dividing by 10, so 200 Hz would be 200/10 = 20 = 0x14
-            sample rate of barometer is baroRt/2 so for 25 Hz enter 50 = 0x32
+                uint8_t accBW = 0x03, gyroBW = 0x03, QRtDiv = 0x01, magRt = 0x64, accRt = 0x14, gyroRt = 0x14, baroRt = 0x32;
 
-            uint8_t accBW = 0x03, gyroBW = 0x03, QRtDiv = 0x01, magRt = 0x64, accRt = 0x14, gyroRt = 0x14, baroRt = 0x32;
+                Choose MPU9250 sensor full ranges
+                Choices are 2, 4, 8, 16 g for accFS, 250, 500, 1000, and 2000 dps for gyro FS and 1000 uT for magFS expressed as HEX values
 
-            Choose MPU9250 sensor full ranges
-            Choices are 2, 4, 8, 16 g for accFS, 250, 500, 1000, and 2000 dps for gyro FS and 1000 uT for magFS expressed as HEX values
-
-            uint16_t accFS = 0x08, gyroFS = 0x7D0, magFS = 0x3E8;
-        */
+                uint16_t accFS = 0x08, gyroFS = 0x7D0, magFS = 0x3E8;
+            */
 
             let acc_bw: u8 = 0x03;
             let gyro_bw: u8 = 0x03;
@@ -115,7 +114,9 @@ where
             let mag_fs: u16 = 0x3E8;
 
             chip.load_fw_from_eeprom()?;
-            chip.init_hardware(acc_bw, gyro_bw, acc_fs, gyro_fs, mag_fs, qrt_div, mag_rt, acc_rt, gyro_rt, baro_rt)?;
+            chip.init_hardware(
+                acc_bw, gyro_bw, acc_fs, gyro_fs, mag_fs, qrt_div, mag_rt, acc_rt, gyro_rt, baro_rt,
+            )?;
             Ok(chip)
         } else {
             Err(Error::InvalidDevice(wai))
@@ -127,12 +128,13 @@ where
         self.com.write_read(self.address, &[reg], &mut data)?;
         Ok(data[0])
     }
-    
+
     fn read_registers<N>(&mut self, reg: Register) -> Result<GenericArray<u8, N>, E>
     where
-        N: ArrayLength<u8>
+        N: ArrayLength<u8>,
     {
-        let mut buffer: GenericArray<u8, N> = unsafe { MaybeUninit::<GenericArray<u8, N>>::uninit().assume_init() };
+        let mut buffer: GenericArray<u8, N> =
+            unsafe { MaybeUninit::<GenericArray<u8, N>>::uninit().assume_init() };
 
         {
             let buffer: &mut [u8] = &mut buffer;
@@ -186,7 +188,7 @@ where
         let bytes_2 = ((param_val >> 16) & (0xFF)) as u8;
         let bytes_3 = ((param_val >> 24) & (0xFF)) as u8;
         let param = param | 0x80; // Parameter is the decimal value with the MSB set high to indicate a paramter write processs
-        
+
         self.write_register(Register::EM7180_LoadParamByte0, bytes_0)?; // Param LSB
         self.write_register(Register::EM7180_LoadParamByte1, bytes_1)?;
         self.write_register(Register::EM7180_LoadParamByte2, bytes_2)?;
@@ -194,11 +196,11 @@ where
         self.write_register(Register::EM7180_ParamRequest, param)?;
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer procedure
         let mut stat = self.read_register(Register::EM7180_ParamAcknowledge)?; // Check the parameter acknowledge register and loop until the result matches parameter request byte
-        
-        while !(stat==param) {
-          stat = self.read_register(Register::EM7180_ParamAcknowledge)?;
+
+        while !(stat == param) {
+            stat = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
-        
+
         self.write_register(Register::EM7180_ParamRequest, 0x00)?; // Parameter request = 0 to end parameter transfer process
         self.write_register(Register::EM7180_AlgorithmControl, 0x00)?; // Re-start algorithm
 
@@ -210,7 +212,7 @@ where
         let bytes_1 = ((mag_fs >> 8) & (0xFF)) as u8;
         let bytes_2 = (acc_fs & (0xFF)) as u8;
         let bytes_3 = ((acc_fs >> 8) & (0xFF)) as u8;
-        
+
         self.write_register(Register::EM7180_LoadParamByte0, bytes_0)?; // Mag LSB
         self.write_register(Register::EM7180_LoadParamByte1, bytes_1)?; // Mag MSB
         self.write_register(Register::EM7180_LoadParamByte2, bytes_2)?; // Acc LSB
@@ -218,11 +220,11 @@ where
         self.write_register(Register::EM7180_ParamRequest, 0xCA)?; // Parameter 74; 0xCA is 74 decimal with the MSB set high to indicate a paramter write processs
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer procedure
         let mut stat = self.read_register(Register::EM7180_ParamAcknowledge)?; // Check the parameter acknowledge register and loop until the result matches parameter request byte
-        
-        while !(stat==0xCA) {
+
+        while !(stat == 0xCA) {
             stat = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
-        
+
         self.write_register(Register::EM7180_ParamRequest, 0x00)?; // Parameter request = 0 to end parameter transfer process
         self.write_register(Register::EM7180_AlgorithmControl, 0x00)?; // Re-start algorithm
 
@@ -234,7 +236,7 @@ where
         let bytes_1 = ((gyro_fs >> 8) & (0xFF)) as u8;
         let bytes_2 = 0x00;
         let bytes_3 = 0x00;
-        
+
         self.write_register(Register::EM7180_LoadParamByte0, bytes_0)?; // Gyro LSB
         self.write_register(Register::EM7180_LoadParamByte1, bytes_1)?; // Gyro MSB
         self.write_register(Register::EM7180_LoadParamByte2, bytes_2)?; // Unused
@@ -242,11 +244,11 @@ where
         self.write_register(Register::EM7180_ParamRequest, 0xCB)?; // Parameter 75; 0xCB is 75 decimal with the MSB set high to indicate a paramter write processs
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer procedure
         let mut stat = self.read_register(Register::EM7180_ParamAcknowledge)?; // Check the parameter acknowledge register and loop until the result matches parameter request byte
-        
-        while !(stat==0xCB) {
+
+        while !(stat == 0xCB) {
             stat = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
-        
+
         self.write_register(Register::EM7180_ParamRequest, 0x00)?; // Parameter request = 0 to end parameter transfer process
         self.write_register(Register::EM7180_AlgorithmControl, 0x00)?; // Re-start algorithm
 
@@ -254,47 +256,58 @@ where
     }
 
     fn load_fw_from_eeprom(&mut self) -> Result<(), E> {
-
         let mut stat = self.read_register(Register::EM7180_SentralStatus)? & 0x01;
 
         let mut count = 0;
         while stat != 0 {
             self.write_register(Register::EM7180_ResetRequest, 0x01)?;
-          count = count+1;  
-          stat =  self.read_register(Register::EM7180_SentralStatus)? & 0x01 ;
-          if count > 10 {
-              break
+            count = count + 1;
+            stat = self.read_register(Register::EM7180_SentralStatus)? & 0x01;
+            if count > 10 {
+                break;
             };
         }
 
         Ok(())
     }
 
-    fn init_hardware(&mut self, acc_bw: u8, gyro_bw: u8, acc_fs: u16, gyro_fs: u16, mag_fs: u16, qrt_div: u8, mag_rt: u8, acc_rt: u8, gyro_rt: u8, baro_rt: u8) -> Result<(), Error<E>> {
+    fn init_hardware(
+        &mut self,
+        acc_bw: u8,
+        gyro_bw: u8,
+        acc_fs: u16,
+        gyro_fs: u16,
+        mag_fs: u16,
+        qrt_div: u8,
+        mag_rt: u8,
+        acc_rt: u8,
+        gyro_rt: u8,
+        baro_rt: u8,
+    ) -> Result<(), Error<E>> {
         self.write_register(Register::EM7180_HostControl, 0x00)?; // Set SENtral in initialized state to configure registers
         self.write_register(Register::EM7180_PassThruControl, 0x00)?; // Make sure pass through mode is off
         self.write_register(Register::EM7180_HostControl, 0x01)?; // Force initialize
         self.write_register(Register::EM7180_HostControl, 0x00)?; // Set SENtral in initialized state to configure registers
 
         // Setup LPF bandwidth (BEFORE setting ODR's)
-        self.write_register(Register::EM7180_ACC_LPF_BW, acc_bw)?;   // accBW = 3 = 41Hz
+        self.write_register(Register::EM7180_ACC_LPF_BW, acc_bw)?; // accBW = 3 = 41Hz
         self.write_register(Register::EM7180_GYRO_LPF_BW, gyro_bw)?; // gyroBW = 3 = 41Hz
-        // Set accel/gyro/mag desired ODR rates
+                                                                     // Set accel/gyro/mag desired ODR rates
         self.write_register(Register::EM7180_QRateDivisor, qrt_div)?; // quat rate = gyroRt/(1 QRTDiv)
         self.write_register(Register::EM7180_MagRate, mag_rt)?; // 0x64 = 100 Hz
         self.write_register(Register::EM7180_AccelRate, acc_rt)?; // 200/10 Hz, 0x14 = 200 Hz
         self.write_register(Register::EM7180_GyroRate, gyro_rt)?; // 200/10 Hz, 0x14 = 200 Hz
-        self.write_register(Register::EM7180_BaroRate, 0x80 | baro_rt)?;  // Set enable bit and set Baro rate to 25 Hz, rate = baroRt/2, 0x32 = 25 Hz
+        self.write_register(Register::EM7180_BaroRate, 0x80 | baro_rt)?; // Set enable bit and set Baro rate to 25 Hz, rate = baroRt/2, 0x32 = 25 Hz
 
         // Configure operating mode
         self.write_register(Register::EM7180_AlgorithmControl, 0x00)?; // Read scale sensor data
-        // Enable interrupt to host upon certain events
-        // choose host interrupts when any sensor updated (0x40), new gyro data (0x20), new accel data (0x10),
-        // New mag data (0x08), quaternions updated (0x04), an error occurs (0x02), or the SENtral needs to be reset(0x01)
+                                                                       // Enable interrupt to host upon certain events
+                                                                       // choose host interrupts when any sensor updated (0x40), new gyro data (0x20), new accel data (0x10),
+                                                                       // New mag data (0x08), quaternions updated (0x04), an error occurs (0x02), or the SENtral needs to be reset(0x01)
         self.write_register(Register::EM7180_EnableEvents, 0x07)?;
         // Enable EM7180 run mode
         self.write_register(Register::EM7180_HostControl, 0x01)?; // Set SENtral in normal run mode
-        
+
         // delay(100);
 
         // Read sensor default FS values from parameter space
@@ -302,13 +315,13 @@ where
 
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer process
         let mut param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
-        while !(param_xfer==0x4A) {
+        while !(param_xfer == 0x4A) {
             param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
-    
+
         self.write_register(Register::EM7180_ParamRequest, 0x4B)?; // Request to read  parameter 75
         let mut param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
-        while !(param_xfer==0x4B) {
+        while !(param_xfer == 0x4B) {
             param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
@@ -326,13 +339,13 @@ where
         self.write_register(Register::EM7180_ParamRequest, 0x4A)?; // Request to read  parameter 74
         self.write_register(Register::EM7180_AlgorithmControl, 0x80)?; // Request parameter transfer process
         let mut param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
-        while !(param_xfer==0x4A) {
+        while !(param_xfer == 0x4A) {
             param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
         self.write_register(Register::EM7180_ParamRequest, 0x4B)?; // Request to read  parameter 75
         let mut param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
-        while !(param_xfer==0x4B) {
+        while !(param_xfer == 0x4B) {
             param_xfer = self.read_register(Register::EM7180_ParamAcknowledge)?;
         }
 
@@ -383,7 +396,7 @@ where
     /// 0x00  | no error        					|
     /// 0x80  | invalid sample rate selected 		| check sensor rate settings
     /// 0x30  | mathematical error 					| check for software updates
-    /// 0x21  | Magnetometer initialization failed 	| this error can be caused by a wrong driver, 
+    /// 0x21  | Magnetometer initialization failed 	| this error can be caused by a wrong driver,
     /// 0x22  | accelerometer initialization failed	| physically bad sensor connection, or
     /// 0x24  | gyroscope initialization failed		| incorrect I2C device address in the driver
     /// 0x11  | magnetometer rate failure 			| this error indicates the given sensor
@@ -392,7 +405,7 @@ where
     pub fn check_errors(&mut self) -> Result<u8, E> {
         self.read_register(Register::EM7180_Error)
     }
-    
+
     /// Check SensorStatus Sensor-Related Error Conditions on address 0x36
     /// Non-zero value indicates sensor-related error
     /// bit | meaning
@@ -405,7 +418,7 @@ where
     pub fn check_sensor_status(&mut self) -> Result<u8, E> {
         self.read_register(Register::EM7180_SensorStatus)
     }
-   
+
     /// Check which sensors can be detected by the EM7180
     /// value | response
     /// 0x01  | A barometer is installed
@@ -433,16 +446,16 @@ where
         Ok(self.read_register(Register::EM7180_ActualGyroRate)? * 10)
     }
 
-    /// Read Linear Acceleration 
+    /// Read Linear Acceleration
     /// AX Linear Acceleration – X Axis
     /// AY Linear Acceleration – Y Axis
-    /// AZ Linear Acceleration – Z Axis 
-    pub fn read_sentral_accel_data(&mut self) ->  Result<[i16; 3], E> {
+    /// AZ Linear Acceleration – Z Axis
+    pub fn read_sentral_accel_data(&mut self) -> Result<[i16; 3], E> {
         let raw_data = self.read_6bytes(Register::EM7180_AX)?;
 
-        let ax = (raw_data[1] as i16) << 8 | raw_data[0] as i16; 
-        let ay = (raw_data[3] as i16) << 8 | raw_data[2] as i16; 
-        let az = (raw_data[5] as i16) << 8 | raw_data[4] as i16; 
+        let ax = (raw_data[1] as i16) << 8 | raw_data[0] as i16;
+        let ay = (raw_data[3] as i16) << 8 | raw_data[2] as i16;
+        let az = (raw_data[5] as i16) << 8 | raw_data[4] as i16;
 
         Ok([ax, ay, az])
     }
@@ -451,12 +464,12 @@ where
     /// GX Rotational Velocity – X Axis
     /// GY Rotational Velocity – Y Axis
     /// GZ Rotational Velocity – Z Axis
-    pub fn read_sentral_gyro_data(&mut self) ->  Result<[i16; 3], E> {
+    pub fn read_sentral_gyro_data(&mut self) -> Result<[i16; 3], E> {
         let raw_data = self.read_6bytes(Register::EM7180_GX)?;
 
-        let ax = (raw_data[1] as i16) << 8 | raw_data[0] as i16; 
-        let ay = (raw_data[3] as i16) << 8 | raw_data[2] as i16; 
-        let az = (raw_data[5] as i16) << 8 | raw_data[4] as i16; 
+        let ax = (raw_data[1] as i16) << 8 | raw_data[0] as i16;
+        let ay = (raw_data[3] as i16) << 8 | raw_data[2] as i16;
+        let az = (raw_data[5] as i16) << 8 | raw_data[4] as i16;
 
         Ok([ax, ay, az])
     }
@@ -465,12 +478,12 @@ where
     /// MX Magnetic Field – X Axis
     /// MY Magnetic Field – Y Axis
     /// MZ Magnetic Field – Z Axis
-    pub fn read_sentral_mag_data(&mut self) ->  Result<[i16; 3], E> {
+    pub fn read_sentral_mag_data(&mut self) -> Result<[i16; 3], E> {
         let raw_data = self.read_6bytes(Register::EM7180_MX)?;
 
-        let ax = (raw_data[1] as i16) << 8 | raw_data[0] as i16; 
-        let ay = (raw_data[3] as i16) << 8 | raw_data[2] as i16; 
-        let az = (raw_data[5] as i16) << 8 | raw_data[4] as i16; 
+        let ax = (raw_data[1] as i16) << 8 | raw_data[0] as i16;
+        let ay = (raw_data[3] as i16) << 8 | raw_data[2] as i16;
+        let az = (raw_data[5] as i16) << 8 | raw_data[4] as i16;
 
         Ok([ax, ay, az])
     }
@@ -480,7 +493,7 @@ where
     /// QY Normalized Quaternion – Y, or Pitch      | Full-Scale Range 0.0 – 1.0 or ±π/2
     /// QZ Normalized Quaternion – Z, or Roll       | Full-Scale Range 0.0 – 1.0 or ±π
     /// QW Normalized Quaternion – W, or 0.0        | Full-Scale Range 0.0 – 1.0
-    pub fn read_sentral_quat_qata(&mut self) ->  Result<[f32; 4], E> {
+    pub fn read_sentral_quat_qata(&mut self) -> Result<[f32; 4], E> {
         let raw_data_qx = self.read_4bytes(Register::EM7180_QX)?;
         let qx = reg_to_float(&raw_data_qx);
 
@@ -497,13 +510,13 @@ where
     }
 
     /// Read Pressure in mBar
-    pub fn read_sentral_baro_data(&mut self) ->  Result<i16, E> {
+    pub fn read_sentral_baro_data(&mut self) -> Result<i16, E> {
         let raw_data = self.read_6bytes(Register::EM7180_Baro)?; // Read the two raw data registers sequentially into data array
         Ok((raw_data[1] as i16) << 8 | raw_data[0] as i16) // Turn the MSB and LSB into a signed 16-bit value
     }
 
     /// Read Temperature in °C
-    pub fn read_sentral_temp_data(&mut self) ->  Result<i16, E> {
+    pub fn read_sentral_temp_data(&mut self) -> Result<i16, E> {
         let raw_data = self.read_6bytes(Register::EM7180_Temp)?; // Read the two raw data registers sequentially into data array
         Ok((raw_data[1] as i16) << 8 | raw_data[0] as i16) // Turn the MSB and LSB into a signed 16-bit value
     }
@@ -559,9 +572,7 @@ enum Register {
 
 /// Transform raw quaternion buffer data into something meaningfull
 fn reg_to_float(buf: &[u8]) -> f32 {
-    unsafe {
-        safe_transmute::guarded_transmute::<f32>(buf).unwrap()
-    }
+    unsafe { safe_transmute::guarded_transmute::<f32>(buf).unwrap() }
 }
 
 /// Transform raw temperature data into Celsius degrees
