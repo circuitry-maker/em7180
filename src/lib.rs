@@ -14,7 +14,12 @@
     unused_qualifications,
     //warnings
 )]
-#![allow(dead_code, clippy::uninit_assumed_init, clippy::too_many_arguments)]
+#![allow(
+    dead_code,
+    clippy::uninit_assumed_init,
+    clippy::too_many_arguments,
+    clippy::upper_case_acronyms
+)]
 
 extern crate cast;
 extern crate embedded_hal as ehal;
@@ -22,7 +27,7 @@ extern crate generic_array;
 extern crate nb;
 extern crate safe_transmute;
 
-use ::core::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 use ehal::blocking::i2c::WriteRead;
 use generic_array::typenum::consts::*;
