@@ -438,7 +438,7 @@ where
 
     /// Get actual magnetometer output data rate
     pub fn get_actual_magnetometer_rate(&mut self) -> Result<u8, E> {
-        Ok(self.read_register(Register::EM7180_ActualMagRate)?)
+        self.read_register(Register::EM7180_ActualMagRate)
     }
 
     /// Get actual accelerometer output data rate
