@@ -21,12 +21,12 @@ jobs:
       matrix:
         rust: [stable, beta, nightly, 1.49.0]
         TARGET:
-          # - x86_64-unknown-linux-gnu
-          # - x86_64-unknown-linux-musl
-          # - arm-unknown-linux-gnueabi # Raspberry Pi 1
-          # - armv7-unknown-linux-gnueabihf # Raspberry Pi 2, 3, etc
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - arm-unknown-linux-gnueabi # Raspberry Pi 1
+          - armv7-unknown-linux-gnueabihf # Raspberry Pi 2, 3, etc
           # Bare metal
-          # - thumbv6m-none-eabi
+          - thumbv6m-none-eabi
           - thumbv7em-none-eabi
           - thumbv7em-none-eabihf
           - thumbv7m-none-eabi
