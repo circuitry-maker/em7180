@@ -1,6 +1,6 @@
 [package]
 name = "em7180"
-version = "0.1.1"
+version = "0.2.0"
 description = "A rust driver for the EM7180 (Sensor hub with MPU9250 gyro/accelerometer, embedded Asahi Kasei AK8963C magnetometer, Measurement Specialties' MS5637 Barometer, and ST's M24512DFC I2C EEPROM module)"
 authors = ["Luca Zulian <lucagiuggia@gmail.com>"]
 categories = ["embedded", "hardware-support", "no-std"]
