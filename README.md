@@ -3,7 +3,7 @@
 > no_std driver for [EM7180](https://github.com/kriswiner/EM7180_SENtral_sensor_hub/wiki) (Sensor hub with MPU9250 gyro/accelerometer, embedded Asahi Kasei AK8963C magnetometer, Measurement Specialties' MS5637 Barometer, and ST's M24512DFC I2C EEPROM module)
 
 [![Build Status](https://github.com/lucazulian/em7180/workflows/em7180-ci/badge.svg)](https://github.com/lucazulian/em7180/actions?query=workflow%3Aem7180-ci)
-[![crates.io](http://meritbadge.herokuapp.com/em7180?style=flat-square)](https://crates.io/crates/em7180)
+[![crates.io](https://img.shields.io/crates/v/em7180.svg)](https://crates.io/crates/em7180)
 [![Docs](https://docs.rs/em7180/badge.svg)](https://docs.rs/em7180)
 [![Coverage Status](https://coveralls.io/repos/github/lucazulian/em7180/badge.svg?branch=master)](https://coveralls.io/github/lucazulian/em7180?branch=master)
 
